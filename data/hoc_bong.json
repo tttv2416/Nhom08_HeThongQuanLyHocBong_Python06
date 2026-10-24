@@ -1,0 +1,6 @@
+[
+    {"ma_hoc_bong": "HB01", "ten_hoc_bong": "Học bổng khuyến khích học tập", "gia_tri": 5000000, "gpa_toi_thieu": 3.2, "diem_ren_luyen_toi_thieu": 80},
+    {"ma_hoc_bong": "HB02", "ten_hoc_bong": "Học bổng xuất sắc", "gia_tri": 10000000, "gpa_toi_thieu": 3.6, "diem_ren_luyen_toi_thieu": 90},
+    {"ma_hoc_bong": "HB03", "ten_hoc_bong": "Học bổng vượt khó", "gia_tri": 3000000, "gpa_toi_thieu": 2.5, "diem_ren_luyen_toi_thieu": 65},
+    {"ma_hoc_bong": "HB04", "ten_hoc_bong": "Học bổng doanh nghiệp", "gia_tri": 8000000, "gpa_toi_thieu": 3.4, "diem_ren_luyen_toi_thieu": 85}
+]

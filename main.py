@@ -1,12 +1,12 @@
 import json
 from pathlib import Path
-from sinh_vien import SinhVien
-from quan_ly_sinh_vien import QuanLySinhVien
-from hoc_bong import HocBong
-from quan_ly_hoc_bong import QuanLyHocBong
-from xet_duyet import XetDuyetHocBong
-from ho_so_hoc_bong import HoSoHocBong
-from thong_ke import ThongKe
+from models.sinh_vien import SinhVien
+from service.quan_ly_sinh_vien import QuanLySinhVien
+from models.hoc_bong import HocBong
+from service.quan_ly_hoc_bong import QuanLyHocBong
+from service.xet_duyet import XetDuyetHocBong
+from models.ho_so_hoc_bong import HoSoHocBong
+from models.thong_ke import ThongKe
 
 DU_LIEU = Path(__file__).parent / "data" / "du_lieu.json"
 

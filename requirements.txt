@@ -1,0 +1,5 @@
+requests>=2.31
+beautifulsoup4>=4.12
+matplotlib>=3.8
+# Dùng khi đóng gói exe:
+# pyinstaller>=6.0
