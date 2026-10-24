@@ -1,0 +1,114 @@
+[
+    {
+        "ma_sv": "2044240275",
+        "ho_ten": "Nguyễn Thị Đông Phương",
+        "lop": "DHKL16A",
+        "gpa": 3.45,
+        "diem_ren_luyen": 88.0
+    },
+    {
+        "ma_sv": "2044240101",
+        "ho_ten": "Trần Minh Anh",
+        "lop": "DHKL16A",
+        "gpa": 3.82,
+        "diem_ren_luyen": 95.0
+    },
+    {
+        "ma_sv": "2044240102",
+        "ho_ten": "Lê Hoàng Nam",
+        "lop": "DHKL16A",
+        "gpa": 2.9,
+        "diem_ren_luyen": 78.0
+    },
+    {
+        "ma_sv": "2044240103",
+        "ho_ten": "Nguyễn Hải Yến",
+        "lop": "DHKL16A",
+        "gpa": 3.1,
+        "diem_ren_luyen": 82.0
+    },
+    {
+        "ma_sv": "2044240104",
+        "ho_ten": "Phan Quốc Khánh",
+        "lop": "DHKL16A",
+        "gpa": 1.85,
+        "diem_ren_luyen": 55.0
+    },
+    {
+        "ma_sv": "2044240203",
+        "ho_ten": "Phạm Thu Hà",
+        "lop": "DHKL16B",
+        "gpa": 3.25,
+        "diem_ren_luyen": 85.0
+    },
+    {
+        "ma_sv": "2044240204",
+        "ho_ten": "Võ Quốc Bảo",
+        "lop": "DHKL16B",
+        "gpa": 2.1,
+        "diem_ren_luyen": 60.0
+    },
+    {
+        "ma_sv": "2044240205",
+        "ho_ten": "Đỗ Ngọc Mai",
+        "lop": "DHKL16B",
+        "gpa": 3.66,
+        "diem_ren_luyen": 91.0
+    },
+    {
+        "ma_sv": "2044240206",
+        "ho_ten": "Trịnh Văn Long",
+        "lop": "DHKL16B",
+        "gpa": 2.75,
+        "diem_ren_luyen": 70.0
+    },
+    {
+        "ma_sv": "2044240305",
+        "ho_ten": "Đặng Khánh Linh",
+        "lop": "DHKL16C",
+        "gpa": 3.7,
+        "diem_ren_luyen": 92.0
+    },
+    {
+        "ma_sv": "2044240306",
+        "ho_ten": "Bùi Thanh Tùng",
+        "lop": "DHKL16C",
+        "gpa": 3.0,
+        "diem_ren_luyen": 72.0
+    },
+    {
+        "ma_sv": "2044240307",
+        "ho_ten": "Hoàng Gia Hân",
+        "lop": "DHKL16C",
+        "gpa": 3.55,
+        "diem_ren_luyen": 90.0
+    },
+    {
+        "ma_sv": "2044240308",
+        "ho_ten": "Lý Minh Tuấn",
+        "lop": "DHKL16C",
+        "gpa": 2.45,
+        "diem_ren_luyen": 64.0
+    },
+    {
+        "ma_sv": "2044240309",
+        "ho_ten": "Ngô Thùy Dương",
+        "lop": "DHKL16C",
+        "gpa": 3.9,
+        "diem_ren_luyen": 98.0
+    },
+    {
+        "ma_sv": "2044240310",
+        "ho_ten": "Vũ Anh Khoa",
+        "lop": "DHKL16C",
+        "gpa": 3.35,
+        "diem_ren_luyen": 80.0
+    },
+    {
+        "ma_sv": "1234567899",
+        "ho_ten": "Nguyễn Thị Phương",
+        "lop": "DHKL16B",
+        "gpa": 3.2,
+        "diem_ren_luyen": 85.0
+    }
+]

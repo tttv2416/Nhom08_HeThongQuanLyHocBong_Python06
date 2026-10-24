@@ -1,0 +1,6 @@
+[
+    {"ma_ho_so": "HS001", "ma_sv": "2044240101", "ma_hoc_bong": "HB02", "gpa": 3.82, "diem_ren_luyen": 95, "ly_do": "Thành tích học tập xuất sắc", "trang_thai": "Chờ xét duyệt", "ghi_chu": ""},
+    {"ma_ho_so": "HS002", "ma_sv": "2044240203", "ma_hoc_bong": "HB01", "gpa": 3.25, "diem_ren_luyen": 85, "ly_do": "Đạt điều kiện khuyến khích học tập", "trang_thai": "Chờ xét duyệt", "ghi_chu": ""},
+    {"ma_ho_so": "HS003", "ma_sv": "2044240305", "ma_hoc_bong": "HB02", "gpa": 3.7, "diem_ren_luyen": 92, "ly_do": "Nghiên cứu khoa học", "trang_thai": "Chờ xét duyệt", "ghi_chu": ""},
+    {"ma_ho_so": "HS004", "ma_sv": "2044240204", "ma_hoc_bong": "HB03", "gpa": 2.1, "diem_ren_luyen": 60, "ly_do": "Hoàn cảnh khó khăn", "trang_thai": "Chờ xét duyệt", "ghi_chu": ""}
+]
