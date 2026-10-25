@@ -1,12 +1,13 @@
 """Module ui/cua_so_thong_ke.py
 Người phụ trách: Nguyễn Thị Đông Phương - 2044240275
 
-Cửa sổ thống kê phong cách hiện đại, vẽ bằng Canvas (không cần thư viện ngoài):
-- Biểu đồ cột bo góc: số sinh viên theo lớp, cột cao nhất được nhấn màu đậm.
-- Biểu đồ donut: tỷ lệ học lực, tổng ở giữa và chú thích bên phải.
+Cửa sổ thống kê sinh viên, vẽ bằng Canvas với hiệu ứng chuyển động:
+- Biểu đồ sóng: số sinh viên theo lớp, đường cong mượt, gợn sóng nhẹ liên tục.
+- Biểu đồ donut: tỷ lệ học lực, quét dần khi mở và đếm tổng từ 0.
 """
 
 import math
+import time
 import tkinter as tk
 from tkinter import messagebox, ttk
 
@@ -16,6 +17,46 @@ from ui.theme import (FONT, FONT_DAM_NHO, FONT_NHAN_NHO, FONT_NHO, FONT_SO_LON, 
                       FONT_TIEU_DE_THE, KHOANG, MAU_CHINH, MAU_CHINH_NHAT, MAU_CHU, MAU_CHU_PHU,
                       MAU_HOC_LUC, MAU_NEN, MAU_THE, MAU_VIEN, kich_thuoc_canvas, tao_the)
 
+# ---- Cấu hình hiệu ứng ----
+THOI_GIAN_DUNG_DAU = 0.9      # giây, thời gian sóng dâng / donut quét khi vẽ lại
+DO_TRE_KHUNG_MS = 33          # ~30 khung hình mỗi giây
+HIEU_UNG_LIEN_TUC = True      # False: sóng ngừng gợn, chỉ chạy hiệu ứng mở đầu
+MAU_VUNG_SONG = "#E0E7FF"
+
+
+def _ease_out_cubic(t):
+    """Đường cong giảm tốc: bắt đầu nhanh, kết thúc êm."""
+    return 1 - (1 - t) ** 3
+
+
+def _catmull(diem, so_buoc=14):
+    """Nội suy đường cong mượt đi qua tất cả các điểm (Catmull-Rom)."""
+    if len(diem) < 3:
+        return list(diem)
+    ket_qua = []
+    n = len(diem)
+    for i in range(n - 1):
+        p0 = diem[i - 1] if i > 0 else diem[i]
+        p1 = diem[i]
+        p2 = diem[i + 1]
+        p3 = diem[i + 2] if i + 2 < n else diem[i + 1]
+        for s in range(so_buoc):
+            t = s / so_buoc
+            t2, t3 = t * t, t * t * t
+            x = 0.5 * ((2 * p1[0]) + (-p0[0] + p2[0]) * t
+                       + (2 * p0[0] - 5 * p1[0] + 4 * p2[0] - p3[0]) * t2
+                       + (-p0[0] + 3 * p1[0] - 3 * p2[0] + p3[0]) * t3)
+            y = 0.5 * ((2 * p1[1]) + (-p0[1] + p2[1]) * t
+                       + (2 * p0[1] - 5 * p1[1] + 4 * p2[1] - p3[1]) * t2
+                       + (-p0[1] + 3 * p1[1] - 3 * p2[1] + p3[1]) * t3)
+            ket_qua.append((x, y))
+    ket_qua.append(diem[-1])
+    return ket_qua
+
+
+def _phang(diem):
+    return [toa for p in diem for toa in p]
+
 
 class CuaSoThongKe(tk.Toplevel):
     """Cửa sổ biểu đồ thống kê; gọi lam_moi() để vẽ lại khi dữ liệu thay đổi."""
@@ -24,12 +65,18 @@ class CuaSoThongKe(tk.Toplevel):
         super().__init__(master)
         self.ql = ql
         self.title("Thống kê sinh viên")
-        self.geometry("980x580")
-        self.minsize(820, 500)
+        self.geometry("1040x600")
+        self.minsize(860, 520)
         self.configure(bg=MAU_NEN)
         self.columnconfigure(0, weight=3)
         self.columnconfigure(1, weight=2)
         self.rowconfigure(2, weight=1)
+
+        self._du_cot = []
+        self._du_tron = []
+        self._t0 = time.perf_counter()
+        self._pha = 0.0
+        self._id_hen = None
 
         self.var_tong_quan = tk.StringVar()
         tk.Label(self, text="Thống kê sinh viên", bg=MAU_NEN, fg=MAU_CHU, font=FONT_TIEU_DE,
@@ -39,20 +86,19 @@ class CuaSoThongKe(tk.Toplevel):
 
         self.cv_cot = self._tao_the_bieu_do(0, "Số sinh viên theo lớp", (18, KHOANG))
         self.cv_tron = self._tao_the_bieu_do(1, "Tỷ lệ học lực", (KHOANG, 18))
-        self.cv_cot.bind("<Configure>", lambda _e: self.ve_cot())
-        self.cv_tron.bind("<Configure>", lambda _e: self.ve_tron())
 
         khung_nut = tk.Frame(self, bg=MAU_NEN)
         khung_nut.grid(row=3, column=0, columnspan=2, sticky="e", padx=18, pady=14)
         ttk.Button(khung_nut, text="Làm mới", command=self.lam_moi_tu_file).grid(
             row=0, column=0, padx=(0, KHOANG))
-        ttk.Button(khung_nut, text="Đóng", style="Chinh.TButton", command=self.destroy).grid(row=0, column=1)
+        ttk.Button(khung_nut, text="Đóng", style="Chinh.TButton", command=self._dong).grid(row=0, column=1)
+        self.protocol("WM_DELETE_WINDOW", self._dong)
 
         self.lam_moi()
+        self._vong_hoat_anh()
 
     # ------------------------------------------------------------------
     def _tao_the_bieu_do(self, cot, tieu_de, padx):
-        """Thẻ chứa biểu đồ: tiêu đề nhỏ phía trên, Canvas phía dưới."""
         the = tao_the(self)
         the.grid(row=2, column=cot, sticky="nsew", padx=padx, pady=(12, 0))
         the.columnconfigure(0, weight=1)
@@ -64,7 +110,7 @@ class CuaSoThongKe(tk.Toplevel):
         return cv
 
     def lam_moi(self):
-        """Vẽ lại theo dữ liệu hiện có trong bộ nhớ."""
+        """Cập nhật dữ liệu và chạy lại hiệu ứng mở đầu."""
         ds = self.ql.danh_sach()
         s = tong_quan(ds)
         if s["tong"] == 0:
@@ -75,11 +121,11 @@ class CuaSoThongKe(tk.Toplevel):
                 f"{s['tong']} sinh viên   •   {s['so_lop']} lớp   •   "
                 f"GPA TB {s['gpa_tb']:.2f}   •   ĐRL TB {s['drl_tb']:.1f}   •   "
                 f"GPA cao nhất: {cao.ho_ten} ({cao.gpa:.2f})")
-        self.ve_cot()
-        self.ve_tron()
+        self._du_cot = dem_theo_lop(ds)
+        self._du_tron = [(nhan, n) for nhan, n in dem_theo_hoc_luc(ds) if n > 0]
+        self._t0 = time.perf_counter()  # chạy lại hiệu ứng mở đầu
 
     def lam_moi_tu_file(self):
-        """Đọc lại dữ liệu từ file JSON rồi vẽ lại."""
         try:
             self.ql.tai_du_lieu()
         except LoiFileError as e:
@@ -87,73 +133,105 @@ class CuaSoThongKe(tk.Toplevel):
             return
         self.lam_moi()
 
+    def _dong(self):
+        if self._id_hen is not None:
+            self.after_cancel(self._id_hen)
+            self._id_hen = None
+        self.destroy()
+
     # ------------------------------------------------------------------
-    @staticmethod
-    def _buoc_chia(lon_nhat):
-        """Khoảng cách giữa các vạch trục tung (số nguyên, tối đa khoảng 5 vạch)."""
-        return 1 if lon_nhat <= 5 else max(1, -(-lon_nhat // 5))
-
-    @staticmethod
-    def _cot_bo_goc(cv, x1, y1, x2, y2, mau, r=8):
-        """Cột có góc trên bo tròn."""
-        r = max(0, min(r, (x2 - x1) / 2, (y2 - y1) / 2))
-        if r < 2:
-            cv.create_rectangle(x1, y1, x2, y2, fill=mau, outline="")
+    # Vòng lặp hoạt ảnh
+    # ------------------------------------------------------------------
+    def _vong_hoat_anh(self):
+        self._id_hen = None
+        if not self.winfo_exists():
             return
-        diem = [x1, y2, x1, y1 + r, x1 + r, y1, x2 - r, y1, x2, y1 + r, x2, y2]
-        cv.create_polygon(diem, fill=mau, outline="", smooth=True)
+        tien_do = min(1.0, (time.perf_counter() - self._t0) / THOI_GIAN_DUNG_DAU)
+        e = _ease_out_cubic(tien_do)
+        if HIEU_UNG_LIEN_TUC:
+            self._pha += 0.08
+        else:
+            self._pha += 0.08 * (1 - tien_do)  # dừng gợn khi hiệu ứng mở đầu xong
+        self.ve_cot(e)
+        self.ve_tron(e)
+        if HIEU_UNG_LIEN_TUC or tien_do < 1.0:
+            self._id_hen = self.after(DO_TRE_KHUNG_MS, self._vong_hoat_anh)
 
+    # ------------------------------------------------------------------
     @staticmethod
     def _thong_bao_trong(cv, noi_dung):
         w, h = kich_thuoc_canvas(cv)
         cv.create_text(w / 2, h / 2, text=noi_dung, font=FONT, fill=MAU_CHU_PHU)
 
-    def ve_cot(self):
+    def ve_cot(self, e=1.0):
+        """Biểu đồ sóng. e: tiến độ hiệu ứng từ 0 đến 1."""
         cv = self.cv_cot
         cv.delete("all")
         w, h = kich_thuoc_canvas(cv)
-        du_lieu = dem_theo_lop(self.ql.danh_sach())
-        if not du_lieu:
+        du = self._du_cot
+        if not du:
             self._thong_bao_trong(cv, "Chưa có dữ liệu lớp")
             return
-        le_trai, le_phai, le_tren, le_duoi = 36, 12, 30, 34
-        vung_rong = w - le_trai - le_phai
-        vung_cao = h - le_tren - le_duoi
-        if vung_rong < 40 or vung_cao < 40:
+        le, ri, tren, duoi = 44, 24, 34, 44
+        vung_rong = w - le - ri
+        y0 = h - duoi
+        yt = tren
+        if vung_rong < 80 or y0 - yt < 60:
             return
-        lon_nhat = max(n for _, n in du_lieu)
-        buoc = self._buoc_chia(lon_nhat)
-        tran = -(-lon_nhat // buoc) * buoc
-        day = h - le_duoi
 
-        for gia_tri in range(0, tran + 1, buoc):  # lưới ngang và nhãn trục tung
-            y = day - vung_cao * gia_tri / tran
-            if gia_tri:
-                cv.create_line(le_trai, y, w - le_phai, y, fill=MAU_VIEN, dash=(2, 4))
-            cv.create_text(le_trai - 8, y, text=str(gia_tri), anchor="e", font=FONT_NHO, fill=MAU_CHU_PHU)
+        lon = max(n for _, n in du)
+        tran = max(4, math.ceil(lon * 1.25))
 
-        o_rong = vung_rong / len(du_lieu)
-        rong_cot = min(48, o_rong * 0.55)
-        so_ky_tu = max(3, int(o_rong // 7))
-        for i, (lop, n) in enumerate(du_lieu):
-            x = le_trai + o_rong * (i + 0.5)
-            cao = vung_cao * n / tran
-            noi_bat = n == lon_nhat
-            if cao > 0:
-                self._cot_bo_goc(cv, x - rong_cot / 2, day - cao, x + rong_cot / 2, day,
-                                 MAU_CHINH if noi_bat else MAU_CHINH_NHAT)
-            cv.create_text(x, day - cao - 11, text=str(n), font=FONT_DAM_NHO,
+        # lưới ngang
+        for k in range(5):
+            y = y0 - (y0 - yt) * k / 4
+            if k:
+                cv.create_line(le, y, w - ri, y, fill=MAU_VIEN, dash=(2, 4))
+            cv.create_text(le - 10, y, text=str(round(tran * k / 4)), anchor="e",
+                           font=FONT_NHO, fill=MAU_CHU_PHU)
+
+        n = len(du)
+        cot_mac_dinh = 0
+        pts = []
+        for i, (_lop, so) in enumerate(du):
+            x = le + 16 + (vung_rong - 32) * i / (n - 1) if n > 1 else le + vung_rong / 2
+            y = y0 - (y0 - yt) * e * so / tran
+            gon = 3.0 * math.sin(self._pha + i * 0.9) * e  # gợn sóng
+            pts.append((x, y + gon))
+            if so == lon:
+                cot_mac_dinh = i
+
+        duong = _catmull(pts, 14)
+        # vùng tô bên dưới đường sóng
+        cv.create_polygon(_phang(duong) + [pts[-1][0], y0, pts[0][0], y0],
+                          fill=MAU_VUNG_SONG, outline="", smooth=False)
+        # đường sóng
+        cv.create_line(_phang(duong), fill=MAU_CHINH, width=3, capstyle="round",
+                       joinstyle="round")
+
+        # chấm và nhãn
+        so_ky_tu = max(4, int((vung_rong / max(n, 1)) // 7))
+        for i, (x, y) in enumerate(pts):
+            noi_bat = i == cot_mac_dinh
+            r = 6 if noi_bat else 4.5
+            cv.create_oval(x - r, y - r, x + r, y + r,
+                           fill=MAU_CHINH if noi_bat else MAU_THE,
+                           outline=MAU_CHINH, width=2)
+            cv.create_text(x, y - 16, text=str(du[i][1]), font=FONT_DAM_NHO,
                            fill=MAU_CHU if noi_bat else MAU_CHU_PHU)
-            ten = lop if len(lop) <= so_ky_tu else lop[:so_ky_tu - 1] + "…"
-            cv.create_text(x, day + 14, text=ten, font=FONT_NHO, fill=MAU_CHU_PHU)
-        cv.create_line(le_trai, day, w - le_phai, day, fill=MAU_VIEN)
+            ten = du[i][0]
+            if len(ten) > so_ky_tu:
+                ten = ten[:so_ky_tu - 1] + "…"
+            cv.create_text(x, y0 + 18, text=ten, font=FONT_NHO, fill=MAU_CHU_PHU)
+        cv.create_line(le, y0, w - ri, y0, fill=MAU_VIEN)
 
-    def ve_tron(self):
+    def ve_tron(self, e=1.0):
+        """Donut quét dần theo e. Tổng ở giữa đếm từ 0 lên."""
         cv = self.cv_tron
         cv.delete("all")
         w, h = kich_thuoc_canvas(cv)
-        du_lieu = dem_theo_hoc_luc(self.ql.danh_sach())
-        tong = sum(n for _, n in du_lieu)
+        du = self._du_tron
+        tong = sum(n for _, n in du)
         if tong == 0:
             self._thong_bao_trong(cv, "Chưa có dữ liệu học lực")
             return
@@ -163,33 +241,49 @@ class CuaSoThongKe(tk.Toplevel):
         r = duong_kinh / 2
         cx, cy = 10 + r, h / 2
 
-        goc = 90.0  # bắt đầu từ 12 giờ, quay theo chiều kim đồng hồ
-        for nhan, n in du_lieu:
-            if n == 0:
-                continue
+        cung_hien = 360.0 * e          # số độ đã quét
+        da_quet = 0.0                  # số độ của các lát trước đó
+        goc_bat_dau = 90.0
+        for nhan, n in du:
             phan = n / tong
-            quet = -360.0 * phan
+            do_lat = 360.0 * phan
+            vis = max(0.0, min(do_lat, cung_hien - da_quet))
             mau = MAU_HOC_LUC[nhan]
-            if phan >= 0.9999:  # một mức duy nhất: cung 360 độ không vẽ được
+            if vis >= 359.9:
                 cv.create_oval(cx - r, cy - r, cx + r, cy + r, fill=mau, outline=MAU_THE, width=3)
-            else:
-                cv.create_arc(cx - r, cy - r, cx + r, cy + r, start=goc, extent=quet,
+            elif vis > 0.5:
+                cv.create_arc(cx - r, cy - r, cx + r, cy + r,
+                              start=goc_bat_dau - da_quet, extent=-vis,
                               fill=mau, outline=MAU_THE, width=3, style="pieslice")
-            goc += quet
+            da_quet += do_lat
 
-        # lỗ giữa tạo hình donut, ghi tổng số ở giữa
-        rt = r * 0.58
+        rt = r * 0.62
         cv.create_oval(cx - rt, cy - rt, cx + rt, cy + rt, fill=MAU_THE, outline="")
-        cv.create_text(cx, cy - 8, text=str(tong), font=FONT_SO_LON, fill=MAU_CHU)
+        cv.create_text(cx, cy - 8, text=str(round(tong * e)), font=FONT_SO_LON, fill=MAU_CHU)
         cv.create_text(cx, cy + 16, text="sinh viên", font=FONT_NHO, fill=MAU_CHU_PHU)
 
-        # chú thích bên phải: màu + tên mức + số lượng và tỷ lệ
+        # chú thích, hiện dần theo tiến độ
+        if e < 0.2:
+            return
         x_ct = 10 + duong_kinh + 26
-        y_bat_dau = cy - len(du_lieu) * 18
-        y_ct = y_bat_dau
-        for nhan, n in du_lieu:
+        y_ct = cy - len(du) * 18
+        for nhan, n in du:
             cv.create_oval(x_ct, y_ct - 6, x_ct + 12, y_ct + 6, fill=MAU_HOC_LUC[nhan], outline="")
             cv.create_text(x_ct + 20, y_ct, anchor="w", font=FONT_DAM_NHO, fill=MAU_CHU, text=nhan)
             cv.create_text(x_ct + 20, y_ct + 16, anchor="w", font=FONT_NHO, fill=MAU_CHU_PHU,
                            text=f"{n} SV   •   {n / tong * 100:.0f}%")
             y_ct += 40
+
+
+def _cua_so_test():
+    """Chạy thử riêng: python -m ui.cua_so_thong_ke"""
+    from services.quan_ly_sinh_vien import QuanLySinhVien
+    goc = tk.Tk()
+    goc.withdraw()
+    ql = QuanLySinhVien(nhat_ky=False)
+    CuaSoThongKe(goc, ql)
+    goc.mainloop()
+
+
+if __name__ == "__main__":
+    _cua_so_test()
