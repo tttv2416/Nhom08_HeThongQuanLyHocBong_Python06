@@ -8,8 +8,9 @@ Giao diện Tkinter quản lý sinh viên:
 
 Quy ước layout: mỗi vùng chứa chỉ dùng một Layout Manager (ở đây là grid()).
 """
+
 import tkinter as tk
-from tkinter import messagebox, ttk
+from tkinter import filedialog, messagebox, ttk
 
 from models.sinh_vien import (
     DuLieuKhongHopLeError,
@@ -20,6 +21,7 @@ from models.sinh_vien import (
     kiem_tra_ma_sv,
 )
 from services.luu_tru_json import LoiFileError
+from services.nhap_xuat_sinh_vien import doc_file, xuat_file
 from services.quan_ly_sinh_vien import QuanLySinhVien
 from services.rang_buoc_ho_so import sinh_vien_co_ho_so
 
@@ -139,8 +141,12 @@ class SinhVienFrame(ttk.Frame):
         self.nut_sua = ttk.Button(khung_nut, text="Cập nhật", style="Chinh.TButton", command=self.cap_nhat)
         self.nut_xoa = ttk.Button(khung_nut, text="Xóa", style="Xoa.TButton", command=self.xoa)
         self.nut_moi = ttk.Button(khung_nut, text="Làm mới form", command=self.lam_moi_form)
+        self.nut_nhap = ttk.Button(khung_nut, text="Nhập từ file...", command=self.nhap_tu_file)
+        self.nut_xuat = ttk.Button(khung_nut, text="Xuất ra file...", command=self.xuat_ra_file)
         for i, nut in enumerate((self.nut_them, self.nut_sua, self.nut_xoa, self.nut_moi)):
             nut.grid(row=0, column=i, padx=(0, KHOANG))
+        self.nut_nhap.grid(row=1, column=0, columnspan=2, sticky="ew", padx=(0, KHOANG), pady=(KHOANG, 0))
+        self.nut_xuat.grid(row=1, column=2, columnspan=2, sticky="ew", padx=(0, KHOANG), pady=(KHOANG, 0))
 
         # --- chi tiết với Progressbar (thang đo GPA và điểm rèn luyện) ---
         khung_ct = ttk.LabelFrame(khung_tren, text="Chi tiết sinh viên đang chọn", padding=KHOANG + 2)
@@ -263,8 +269,9 @@ class SinhVienFrame(ttk.Frame):
         finally:
             self._dang_do_bang = False
         if self._ma_dang_chon and not self.bang.exists(self._ma_dang_chon):
-            # dòng đang chọn bị lọc đi: xóa form và mở khóa ô mã (tránh form bị kẹt)
-            self.lam_moi_form(focus=False)
+            self._ma_dang_chon = None
+            self._hien_chi_tiet(None)
+            self._cap_nhat_trang_thai_nut()
         self.var_trang_thai.set(
             f"Hiển thị {len(ds)} / {self.ql.so_luong()} sinh viên. "
             f"Nhấn vào tiêu đề cột để sắp xếp.")
@@ -333,17 +340,15 @@ class SinhVienFrame(ttk.Frame):
         self._hien_chi_tiet(sv)
         self._cap_nhat_trang_thai_nut()
 
-    def lam_moi_form(self, focus=True):
+    def lam_moi_form(self):
         self._ma_dang_chon = None
         self.o_nhap["ma_sv"].configure(state="normal")
         for bien in self.bien.values():
             bien.set("")
-        if self.bang.selection():
-            self.bang.selection_remove(*self.bang.selection())
+        self.bang.selection_remove(*self.bang.selection())
         self._hien_chi_tiet(None)
         self._cap_nhat_trang_thai_nut()
-        if focus:
-            self.o_nhap["ma_sv"].focus_set()
+        self.o_nhap["ma_sv"].focus_set()
 
     def dat_quyen_chinh_sua(self, duoc_chinh_sua):
         """Bật/tắt quyền thêm-sửa-xóa (dùng khi đăng nhập/đăng xuất, phân quyền)."""
@@ -355,6 +360,65 @@ class SinhVienFrame(ttk.Frame):
         self.nut_them.state(["!disabled"] if self.duoc_chinh_sua and not co_chon else ["disabled"])
         self.nut_sua.state(["!disabled"] if self.duoc_chinh_sua and co_chon else ["disabled"])
         self.nut_xoa.state(["!disabled"] if self.duoc_chinh_sua and co_chon else ["disabled"])
+        self.nut_nhap.state(["!disabled"] if self.duoc_chinh_sua else ["disabled"])
+
+    # ------------------------------------------------------------------
+    # Nhập / xuất file CSV, JSON
+    # ------------------------------------------------------------------
+    def nhap_tu_file(self, duong_dan=None):
+        """Nhập hàng loạt sinh viên từ file CSV/JSON. duong_dan=None -> mở hộp chọn file."""
+        if not self._co_quyen():
+            return
+        if duong_dan is None:
+            duong_dan = filedialog.askopenfilename(
+                parent=self, title="Chọn file sinh viên cần nhập",
+                filetypes=[("CSV hoặc JSON", "*.csv *.json"), ("CSV", "*.csv"), ("JSON", "*.json")])
+            if not duong_dan:
+                return
+        try:
+            ban_ghi = doc_file(duong_dan)
+        except LoiFileError as e:
+            messagebox.showerror("Không đọc được file", str(e), parent=self)
+            return
+        if not ban_ghi:
+            messagebox.showinfo("File trống", "File không có sinh viên nào để nhập.", parent=self)
+            return
+        tra_loi = messagebox.askyesnocancel(
+            "Nhập từ file",
+            f"Đọc được {len(ban_ghi)} dòng dữ liệu.\n\n"
+            f"Nếu trùng mã sinh viên với dữ liệu hiện có:\n"
+            f"  - Yes: cập nhật theo file\n  - No: bỏ qua dòng trùng\n  - Cancel: hủy nhập",
+            parent=self)
+        if tra_loi is None:
+            return
+        try:
+            ket_qua = self.ql.nhap_hang_loat(ban_ghi, ghi_de=tra_loi)
+        except LoiFileError as e:
+            messagebox.showerror("Không lưu được dữ liệu", str(e), parent=self)
+            return
+        hop_thoai = messagebox.showwarning if ket_qua.bo_qua else messagebox.showinfo
+        hop_thoai("Kết quả nhập file", ket_qua.tom_tat(), parent=self)
+        self.lam_moi_du_lieu(bao_loi=False)
+
+    def xuat_ra_file(self, duong_dan=None, chi_dang_hien_thi=True):
+        """Xuất danh sách ra CSV/JSON. Mặc định xuất đúng những dòng đang hiển thị (sau tìm kiếm/lọc)."""
+        ds = self.hien_thi() if chi_dang_hien_thi else self.ql.sap_xep("ma_sv")
+        if not ds:
+            messagebox.showinfo("Không có dữ liệu", "Không có sinh viên nào để xuất.", parent=self)
+            return
+        if duong_dan is None:
+            duong_dan = filedialog.asksaveasfilename(
+                parent=self, title="Lưu danh sách sinh viên", defaultextension=".csv",
+                initialfile="danh_sach_sinh_vien.csv",
+                filetypes=[("CSV (mở bằng Excel)", "*.csv"), ("JSON", "*.json")])
+            if not duong_dan:
+                return
+        try:
+            xuat_file(ds, duong_dan)
+        except LoiFileError as e:
+            messagebox.showerror("Không xuất được file", str(e), parent=self)
+            return
+        messagebox.showinfo("Thành công", f"Đã xuất {len(ds)} sinh viên ra file:\n{duong_dan}", parent=self)
 
     # ------------------------------------------------------------------
     # Thêm / Sửa / Xóa
@@ -493,6 +557,9 @@ class UngDungSinhVien(tk.Tk):
     def _tao_menu(self):
         thanh = tk.Menu(self)
         m_tep = tk.Menu(thanh, tearoff=False)
+        m_tep.add_command(label="Nhập sinh viên từ file CSV/JSON...", command=self.khung.nhap_tu_file)
+        m_tep.add_command(label="Xuất danh sách ra file CSV/JSON...", command=self.khung.xuat_ra_file)
+        m_tep.add_separator()
         m_tep.add_command(label="Tải lại dữ liệu từ file", accelerator="F5",
                           command=self.khung.lam_moi_du_lieu)
         m_tep.add_separator()

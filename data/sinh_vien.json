@@ -117,5 +117,61 @@
         "lop": "DKPLW1",
         "gpa": 0.2,
         "diem_ren_luyen": 90.0
+    },
+    {
+        "ma_sv": "2044240401",
+        "ho_ten": "Nguyễn Văn Hùng",
+        "lop": "DHKL16D",
+        "gpa": 3.4,
+        "diem_ren_luyen": 85.0
+    },
+    {
+        "ma_sv": "2044240402",
+        "ho_ten": "Trần Thị Bích Ngọc",
+        "lop": "DHKL16D",
+        "gpa": 3.75,
+        "diem_ren_luyen": 93.0
+    },
+    {
+        "ma_sv": "2044240403",
+        "ho_ten": "Lê Quang Vinh",
+        "lop": "DHKL16D",
+        "gpa": 2.6,
+        "diem_ren_luyen": 68.0
+    },
+    {
+        "ma_sv": "2044240404",
+        "ho_ten": "Phạm Hồng Nhung",
+        "lop": "DHKL16D",
+        "gpa": 3.05,
+        "diem_ren_luyen": 79.0
+    },
+    {
+        "ma_sv": "2044240405",
+        "ho_ten": "Đinh Công Sơn",
+        "lop": "DHKL16D",
+        "gpa": 3.88,
+        "diem_ren_luyen": 96.0
+    },
+    {
+        "ma_sv": "2044240501",
+        "ho_ten": "Hồ Thanh Bình",
+        "lop": "DHKL16E",
+        "gpa": 3.3,
+        "diem_ren_luyen": 84.0
+    },
+    {
+        "ma_sv": "2044240502",
+        "ho_ten": "Mai Phương Thảo",
+        "lop": "DHKL16E",
+        "gpa": 3.95,
+        "diem_ren_luyen": 99.0
+    },
+    {
+        "ma_sv": "2044240503",
+        "ho_ten": "Cao Đức Thịnh",
+        "lop": "DHKL16E",
+        "gpa": 2.2,
+        "diem_ren_luyen": 61.0
     }
 ]
