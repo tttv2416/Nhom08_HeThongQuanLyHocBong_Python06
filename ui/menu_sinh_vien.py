@@ -9,6 +9,7 @@ Hoặc gọi từ main.py:                  MenuSinhVien().chay()
 import functools
 
 from services.luu_tru_json import LoiFileError
+from services.nhap_xuat_sinh_vien import doc_file, xuat_file
 from services.quan_ly_sinh_vien import QuanLySinhVien
 from services.rang_buoc_ho_so import sinh_vien_co_ho_so
 from models.sinh_vien import (
@@ -97,6 +98,8 @@ class MenuSinhVien:
  5. Tìm kiếm sinh viên
  6. Xem thông tin chi tiết
  7. Sắp xếp danh sách
+ 8. Nhập sinh viên từ file (CSV/JSON)
+ 9. Xuất danh sách ra file (CSV/JSON)
  0. Quay lại / Thoát
 =======================================
 (Khi đang nhập, gõ 'huy' để hủy thao tác)"""
@@ -252,6 +255,39 @@ class MenuSinhVien:
             return
         in_bang(self.ql.sap_xep(truong, giam_dan=(thu_tu == "2")), "DANH SÁCH ĐÃ SẮP XẾP")
 
+    # ---------- 8. Nhập từ file ----------
+    @_an_toan
+    def nhap_tu_file(self):
+        print("\n--- NHẬP SINH VIÊN TỪ FILE ---")
+        print("File .csv hoặc .json (mẫu: data/sinh_vien_nhap_mau.csv, data/sinh_vien_nhap_mau.json)")
+        duong_dan = self._nhap("Đường dẫn file")
+        if not duong_dan:
+            print("Đường dẫn không được để trống.")
+            return
+        ban_ghi = doc_file(duong_dan)
+        if not ban_ghi:
+            print("File không có sinh viên nào để nhập.")
+            return
+        print(f"Đọc được {len(ban_ghi)} dòng dữ liệu.")
+        ghi_de = self._xac_nhan("Nếu trùng mã sinh viên, cập nhật theo file? (n = bỏ qua dòng trùng)")
+        ket_qua = self.ql.nhap_hang_loat(ban_ghi, ghi_de)
+        print(ket_qua.tom_tat(toi_da=20))
+
+    # ---------- 9. Xuất ra file ----------
+    @_an_toan
+    def xuat_ra_file(self):
+        print("\n--- XUẤT DANH SÁCH RA FILE ---")
+        if self.ql.so_luong() == 0:
+            print("Danh sách sinh viên đang trống, không có gì để xuất.")
+            return
+        duong_dan = self._nhap("Tên file muốn lưu (đuôi .csv hoặc .json, vd: ds_sinh_vien.csv)")
+        if not duong_dan:
+            print("Đường dẫn không được để trống.")
+            return
+        ds = self.ql.sap_xep("ma_sv")
+        xuat_file(ds, duong_dan)
+        print(f"Đã xuất {len(ds)} sinh viên ra file '{duong_dan}'.")
+
     # ---------- vòng lặp menu ----------
     def chay(self):
         for canh_bao in self.ql.loi_khi_tai:
@@ -264,6 +300,8 @@ class MenuSinhVien:
             "5": self.tim_kiem_sinh_vien,
             "6": self.xem_chi_tiet,
             "7": self.sap_xep_danh_sach,
+            "8": self.nhap_tu_file,
+            "9": self.xuat_ra_file,
         }
         while True:
             print(self.TIEU_DE_MENU)
@@ -278,7 +316,7 @@ class MenuSinhVien:
                 break
             ham = hanh_dong.get(chon)
             if ham is None:
-                print("Lựa chọn không hợp lệ, hãy nhập số từ 0 đến 7.")
+                print("Lựa chọn không hợp lệ, hãy nhập số từ 0 đến 9.")
                 continue
             try:
                 ham()

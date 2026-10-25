@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+.idea/
+.vscode/
+build/
+dist/
+*.spec
+*.tmp
+*.bak
+
+# Nhật ký thao tác sinh ra khi chạy
+*.log
