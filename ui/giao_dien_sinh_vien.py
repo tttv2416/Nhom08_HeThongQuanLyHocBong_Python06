@@ -24,16 +24,11 @@ from services.luu_tru_json import LoiFileError
 from services.nhap_xuat_sinh_vien import doc_file, xuat_file
 from services.quan_ly_sinh_vien import QuanLySinhVien
 from services.rang_buoc_ho_so import sinh_vien_co_ho_so
-
-# ---------- Giao diện thống nhất: font, màu, khoảng cách ----------
-FONT = ("Segoe UI", 10)
-FONT_DAM = ("Segoe UI", 10, "bold")
-FONT_TIEU_DE = ("Segoe UI", 16, "bold")
-MAU_NEN = "#f4f6fa"
-MAU_CHINH = "#1f4e8c"
-MAU_NGUY_HIEM = "#b3261e"
-MAU_DONG_LE = "#eaf1fb"
-KHOANG = 6
+from ui.cua_so_nhat_ky import CuaSoNhatKy
+from ui.cua_so_thong_ke import CuaSoThongKe
+from ui.score_meter import ScoreMeter
+from ui.theme import (FONT, FONT_DAM, FONT_TIEU_DE, KHOANG, MAU_CHINH, MAU_DONG_LE, MAU_NEN,
+                      MAU_NGUY_HIEM)
 
 # (mã cột, tiêu đề, độ rộng, căn lề)
 CAC_COT = (
@@ -71,6 +66,8 @@ class SinhVienFrame(ttk.Frame):
         self._cot_sap_xep = "ma_sv"       # cột đang được sắp xếp (để vẽ mũi tên)
         self._ma_dang_chon = None
         self._dang_do_bang = False
+        self._cs_thong_ke = None   # cửa sổ thống kê (nếu đang mở)
+        self._cs_nhat_ky = None    # cửa sổ nhật ký (nếu đang mở)
         self._tao_style()
         self._tao_giao_dien()
         self.lam_moi_du_lieu(bao_loi=False)
@@ -143,10 +140,14 @@ class SinhVienFrame(ttk.Frame):
         self.nut_moi = ttk.Button(khung_nut, text="Làm mới form", command=self.lam_moi_form)
         self.nut_nhap = ttk.Button(khung_nut, text="Nhập từ file...", command=self.nhap_tu_file)
         self.nut_xuat = ttk.Button(khung_nut, text="Xuất ra file...", command=self.xuat_ra_file)
+        self.nut_thong_ke = ttk.Button(khung_nut, text="Thống kê (biểu đồ)", command=self.mo_thong_ke)
+        self.nut_nhat_ky = ttk.Button(khung_nut, text="Nhật ký thao tác", command=self.mo_nhat_ky)
         for i, nut in enumerate((self.nut_them, self.nut_sua, self.nut_xoa, self.nut_moi)):
             nut.grid(row=0, column=i, padx=(0, KHOANG))
         self.nut_nhap.grid(row=1, column=0, columnspan=2, sticky="ew", padx=(0, KHOANG), pady=(KHOANG, 0))
         self.nut_xuat.grid(row=1, column=2, columnspan=2, sticky="ew", padx=(0, KHOANG), pady=(KHOANG, 0))
+        self.nut_thong_ke.grid(row=2, column=0, columnspan=2, sticky="ew", padx=(0, KHOANG), pady=(KHOANG, 0))
+        self.nut_nhat_ky.grid(row=2, column=2, columnspan=2, sticky="ew", padx=(0, KHOANG), pady=(KHOANG, 0))
 
         # --- chi tiết với Progressbar (thang đo GPA và điểm rèn luyện) ---
         khung_ct = ttk.LabelFrame(khung_tren, text="Chi tiết sinh viên đang chọn", padding=KHOANG + 2)
@@ -157,12 +158,12 @@ class SinhVienFrame(ttk.Frame):
         self.var_ct_drl = tk.StringVar()
         ttk.Label(khung_ct, textvariable=self.var_ct_ten, font=FONT_DAM).grid(row=0, column=0, sticky="w")
         ttk.Label(khung_ct, text="GPA").grid(row=1, column=0, sticky="w", pady=(KHOANG, 0))
-        self.pb_gpa = ttk.Progressbar(khung_ct, orient="horizontal", mode="determinate", maximum=4.0)
-        self.pb_gpa.grid(row=2, column=0, sticky="ew")
+        self.meter_gpa = ScoreMeter(khung_ct, toi_da=4.0, nen=MAU_NEN)
+        self.meter_gpa.grid(row=2, column=0, sticky="ew")
         ttk.Label(khung_ct, textvariable=self.var_ct_gpa).grid(row=3, column=0, sticky="w")
         ttk.Label(khung_ct, text="Điểm rèn luyện").grid(row=4, column=0, sticky="w", pady=(KHOANG, 0))
-        self.pb_drl = ttk.Progressbar(khung_ct, orient="horizontal", mode="determinate", maximum=100)
-        self.pb_drl.grid(row=5, column=0, sticky="ew")
+        self.meter_drl = ScoreMeter(khung_ct, toi_da=100.0, nen=MAU_NEN)
+        self.meter_drl.grid(row=5, column=0, sticky="ew")
         ttk.Label(khung_ct, textvariable=self.var_ct_drl).grid(row=6, column=0, sticky="w")
 
         # ===== Hàng 1: tìm kiếm / lọc =====
@@ -275,20 +276,54 @@ class SinhVienFrame(ttk.Frame):
         self.var_trang_thai.set(
             f"Hiển thị {len(ds)} / {self.ql.so_luong()} sinh viên. "
             f"Nhấn vào tiêu đề cột để sắp xếp.")
+        self._lam_moi_cua_so_phu()
+
+    def _lam_moi_cua_so_phu(self):
+        """Cửa sổ thống kê / nhật ký đang mở thì cập nhật theo dữ liệu mới."""
+        for cua_so in (self._cs_thong_ke, self._cs_nhat_ky):
+            if cua_so is not None and cua_so.winfo_exists():
+                cua_so.lam_moi()
+
+    # ------------------------------------------------------------------
+    # Thống kê (biểu đồ) và nhật ký thao tác
+    # ------------------------------------------------------------------
+    def mo_thong_ke(self):
+        """Mở cửa sổ biểu đồ thống kê (nếu đang mở thì đưa lên trước)."""
+        if self._cs_thong_ke is not None and self._cs_thong_ke.winfo_exists():
+            self._cs_thong_ke.lam_moi()
+            self._cs_thong_ke.lift()
+            return
+        self._cs_thong_ke = CuaSoThongKe(self.winfo_toplevel(), self.ql)
+
+    def mo_nhat_ky(self):
+        """Mở cửa sổ nhật ký thao tác. Chỉ quản trị viên (duoc_chinh_sua=True) được xem."""
+        if not self.duoc_chinh_sua:
+            messagebox.showwarning("Không có quyền",
+                                   "Chỉ quản trị viên mới được xem nhật ký thao tác.", parent=self)
+            return
+        if self.ql.nhat_ky is None:
+            messagebox.showinfo("Nhật ký đang tắt",
+                                "Nhật ký thao tác chưa được bật cho danh sách sinh viên này.", parent=self)
+            return
+        if self._cs_nhat_ky is not None and self._cs_nhat_ky.winfo_exists():
+            self._cs_nhat_ky.lam_moi()
+            self._cs_nhat_ky.lift()
+            return
+        self._cs_nhat_ky = CuaSoNhatKy(self.winfo_toplevel(), self.ql.nhat_ky)
 
     def _hien_chi_tiet(self, sv):
         if sv is None:
             self.var_ct_ten.set("Chưa chọn sinh viên")
             self.var_ct_gpa.set("")
             self.var_ct_drl.set("")
-            self.pb_gpa["value"] = 0
-            self.pb_drl["value"] = 0
+            self.meter_gpa.dat_gia_tri(None)
+            self.meter_drl.dat_gia_tri(None)
             return
         self.var_ct_ten.set(f"{sv.ho_ten}\n{sv.ma_sv} - {sv.lop}")
         self.var_ct_gpa.set(f"{sv.gpa:.2f} / 4.0  -  {sv.xep_loai_hoc_luc()}")
         self.var_ct_drl.set(f"{sv.diem_ren_luyen:.1f} / 100  -  {sv.xep_loai_ren_luyen()}")
-        self.pb_gpa["value"] = sv.gpa
-        self.pb_drl["value"] = sv.diem_ren_luyen
+        self.meter_gpa.dat_gia_tri(sv.gpa)
+        self.meter_drl.dat_gia_tri(sv.diem_ren_luyen)
 
     # ------------------------------------------------------------------
     # Sắp xếp, tìm kiếm
@@ -361,6 +396,7 @@ class SinhVienFrame(ttk.Frame):
         self.nut_sua.state(["!disabled"] if self.duoc_chinh_sua and co_chon else ["disabled"])
         self.nut_xoa.state(["!disabled"] if self.duoc_chinh_sua and co_chon else ["disabled"])
         self.nut_nhap.state(["!disabled"] if self.duoc_chinh_sua else ["disabled"])
+        self.nut_nhat_ky.state(["!disabled"] if self.duoc_chinh_sua else ["disabled"])
 
     # ------------------------------------------------------------------
     # Nhập / xuất file CSV, JSON
@@ -537,8 +573,8 @@ class UngDungSinhVien(tk.Tk):
     def __init__(self, ql=None, kiem_tra_rang_buoc=None, duoc_chinh_sua=True):
         super().__init__()
         self.title("Quản lý sinh viên - Hệ thống quản lý học bổng")
-        self.geometry("1000x720")
-        self.minsize(900, 600)
+        self.geometry("1000x780")
+        self.minsize(900, 660)
         self.configure(bg=MAU_NEN)
         self.columnconfigure(0, weight=1)
         self.rowconfigure(1, weight=1)
@@ -559,6 +595,7 @@ class UngDungSinhVien(tk.Tk):
         m_tep = tk.Menu(thanh, tearoff=False)
         m_tep.add_command(label="Nhập sinh viên từ file CSV/JSON...", command=self.khung.nhap_tu_file)
         m_tep.add_command(label="Xuất danh sách ra file CSV/JSON...", command=self.khung.xuat_ra_file)
+        m_tep.add_command(label="Xem nhật ký thao tác...", command=self.khung.mo_nhat_ky)
         m_tep.add_separator()
         m_tep.add_command(label="Tải lại dữ liệu từ file", accelerator="F5",
                           command=self.khung.lam_moi_du_lieu)
@@ -571,6 +608,7 @@ class UngDungSinhVien(tk.Tk):
         m_cn.add_command(label="Tìm kiếm", accelerator="Ctrl+F",
                          command=self.khung.o_tu_khoa.focus_set)
         m_cn.add_command(label="Hiện tất cả", command=self.khung.hien_tat_ca)
+        m_cn.add_command(label="Thống kê (biểu đồ)", command=self.khung.mo_thong_ke)
         thanh.add_cascade(label="Chức năng", menu=m_cn)
 
         m_gd = tk.Menu(thanh, tearoff=False)
